@@ -7,7 +7,8 @@ import type { ProcessedLap } from "../lib/utils";
 
 const LapChart = dynamic(() => import("../components/LapChart"), { ssr: false });
 
-const YEARS = [2025, 2024, 2023];
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: currentYear - 2022 }, (_, i) => currentYear - i);
 const LIVE_POLL_INTERVAL = 15000;
 
 interface RaceData {
