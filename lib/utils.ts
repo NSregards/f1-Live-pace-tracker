@@ -7,10 +7,8 @@ export const TYRE_COLORS: Record<string, string> = {
   INTERMEDIATE: "#39FF14",
   INTER: "#39FF14",
   WET: "#00BFFF",
-  // Named compounds C1-C6
   C1: "#FFFFFF", C2: "#FFFFFF", C3: "#FFD700",
   C4: "#FFD700", C5: "#FF3333", C6: "#FF3333",
-  // Prefixed compounds e.g. HARD_C2
   HARD_C1: "#FFFFFF", HARD_C2: "#FFFFFF", HARD_C3: "#FFFFFF",
   MEDIUM_C2: "#FFD700", MEDIUM_C3: "#FFD700", MEDIUM_C4: "#FFD700",
   SOFT_C4: "#FF3333", SOFT_C5: "#FF3333", SOFT_C6: "#FF3333",
@@ -54,19 +52,20 @@ export function secsToMs(s: number | null): string {
   return `${m}:${sec.toFixed(3).padStart(6, "0")}`;
 }
 
-// Normalise compound string to a key that exists in TYRE_COLORS
-// Handles: "HARD", "HARD_C2", "C2", "hard_c2", etc.
-function normaliseCompound(raw: string): string {
+// Handles null, undefined, "HARD", "HARD_C2", "C2", "hard_c2" etc.
+function normaliseCompound(raw: string | null | undefined): string {
+  if (!raw) return "UNKNOWN";
   const upper = raw.toUpperCase().trim();
+  if (!upper) return "UNKNOWN";
   // Direct match
   if (TYRE_COLORS[upper] !== undefined) return upper;
-  // Try stripping whitespace variants
+  // Whitespace normalised
   const clean = upper.replace(/\s+/g, "_");
   if (TYRE_COLORS[clean] !== undefined) return clean;
-  // Try just the base type before underscore e.g. "HARD_C2" -> "HARD"
+  // Base type before underscore e.g. "HARD_C2" -> "HARD"
   const base = upper.split("_")[0];
-  if (TYRE_COLORS[base] !== undefined) return base;
-  // Try just the C-number part e.g. "HARD_C2" -> "C2"
+  if (base && TYRE_COLORS[base] !== undefined) return base;
+  // C-number part e.g. "HARD_C2" -> "C2"
   const cNum = upper.match(/C\d/)?.[0];
   if (cNum && TYRE_COLORS[cNum] !== undefined) return cNum;
   return "UNKNOWN";
@@ -125,13 +124,11 @@ export function processRaceData(
   vscLaps: Set<number>;
   driverMap: Record<number, string>;
 } {
-  // Build driver number -> acronym map
   const driverMap: Record<number, string> = {};
   for (const d of drivers) {
     driverMap[d.driver_number] = d.name_acronym;
   }
 
-  // Build stint map: driver_number -> sorted stints
   const stintMap: Record<number, Stint[]> = {};
   for (const s of stints) {
     if (!stintMap[s.driver_number]) stintMap[s.driver_number] = [];
@@ -155,7 +152,6 @@ export function processRaceData(
   for (const msg of rcSorted) {
     const lap = msg.lap_number ?? 0;
     if (!lap) continue;
-
     const flag = (msg.flag ?? "").toUpperCase().trim();
     const message = (msg.message ?? "").toUpperCase().trim();
 
@@ -165,31 +161,19 @@ export function processRaceData(
         vscStart = null;
       }
       if (scStart === null) scStart = lap;
-    } else if (
-      flag === "VIRTUAL_SAFETY_CAR" ||
-      message.includes("VIRTUAL SAFETY CAR DEPLOYED")
-    ) {
+    } else if (flag === "VIRTUAL_SAFETY_CAR" || message.includes("VIRTUAL SAFETY CAR DEPLOYED")) {
       if (vscStart === null && scStart === null) vscStart = lap;
-    } else if (
-      message.includes("SAFETY CAR IN THIS LAP") ||
-      message.includes("SAFETY CAR IN THE PIT LANE")
-    ) {
+    } else if (message.includes("SAFETY CAR IN THIS LAP") || message.includes("SAFETY CAR IN THE PIT LANE")) {
       if (scStart !== null) {
         for (let l = scStart; l <= lap; l++) scLaps.add(l);
         scStart = null;
       }
-    } else if (
-      message.includes("VIRTUAL SAFETY CAR ENDING") ||
-      message.includes("VIRTUAL SAFETY CAR ENDED")
-    ) {
+    } else if (message.includes("VIRTUAL SAFETY CAR ENDING") || message.includes("VIRTUAL SAFETY CAR ENDED")) {
       if (vscStart !== null) {
         for (let l = vscStart; l <= lap; l++) vscLaps.add(l);
         vscStart = null;
       }
-    } else if (
-      flag === "GREEN" || flag === "CLEAR" ||
-      message.includes("GREEN FLAG") || message.includes("TRACK CLEAR")
-    ) {
+    } else if (flag === "GREEN" || flag === "CLEAR" || message.includes("GREEN FLAG") || message.includes("TRACK CLEAR")) {
       if (scStart !== null) {
         for (let l = scStart; l <= lap; l++) scLaps.add(l);
         scStart = null;
@@ -201,16 +185,13 @@ export function processRaceData(
     }
   }
 
-  const maxRcLap = rcSorted.length
-    ? Math.max(...rcSorted.map((r) => r.lap_number ?? 0))
-    : 0;
+  const maxRcLap = rcSorted.length ? Math.max(...rcSorted.map((r) => r.lap_number ?? 0)) : 0;
   if (scStart !== null && maxRcLap > 0) {
     for (let l = scStart; l <= maxRcLap; l++) scLaps.add(l);
   }
   if (vscStart !== null && maxRcLap > 0) {
     for (let l = vscStart; l <= maxRcLap; l++) vscLaps.add(l);
   }
-
   for (const lap of Array.from(scLaps)) vscLaps.delete(lap);
 
   // ── Process laps ──────────────────────────────────────────────────────────
@@ -228,13 +209,14 @@ export function processRaceData(
       currentStint = driverStints[driverStints.length - 1];
     }
 
-    // Normalise compound so C2, HARD_C2 etc. all resolve correctly
-    const compound = normaliseCompound(currentStint?.compound ?? "UNKNOWN");
+    // Use lap-level compound if stint compound is null
+    const rawCompound = currentStint?.compound ?? null;
+    const compound = normaliseCompound(rawCompound);
+
     const tyreLife = currentStint
       ? lap.lap_number - currentStint.lap_start + (currentStint.tyre_age_at_start ?? 0)
       : 0;
     const stintNum = currentStint?.stint_number ?? 1;
-
     const isSC = scLaps.has(lap.lap_number);
     const isVSC = vscLaps.has(lap.lap_number);
 

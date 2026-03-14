@@ -4,6 +4,8 @@ import { processRaceData } from "../../lib/utils";
 
 const BASE = "https://api.openf1.org/v1";
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).end();
 
@@ -14,13 +16,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (isNaN(sk)) return res.status(400).json({ error: "session_key must be a number" });
 
   try {
-    // Fetch session info + all race data in parallel
-    const sessionRes = await fetch(`${BASE}/sessions?session_key=${sk}`, { headers: { Accept: "application/json" } }).then((r) => r.json());
-const rawLaps = await getLaps(sk);
-const stints = await getStints(sk);
-const drivers = await getDrivers(sk);
-const raceControl = await getRaceControl(sk);
-const pitStops = await getPitStops(sk);
+    // Fetch sequentially with delays to avoid OpenF1 rate limiting (429)
+    const sessionRes = await fetch(`${BASE}/sessions?session_key=${sk}`, {
+      headers: { Accept: "application/json" },
+    }).then((r) => r.json());
+    await delay(600);
+
+    const rawLaps = await getLaps(sk);
+    await delay(600);
+
+    const stints = await getStints(sk);
+    await delay(600);
+
+    const drivers = await getDrivers(sk);
+    await delay(600);
+
+    const raceControl = await getRaceControl(sk);
+    await delay(600);
+
+    const pitStops = await getPitStops(sk);
 
     const session = Array.isArray(sessionRes) ? sessionRes[0] : sessionRes;
     if (!session) return res.status(404).json({ error: "Session not found" });
