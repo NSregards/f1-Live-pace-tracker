@@ -357,7 +357,7 @@ export default function Home() {
               )}
             </div>
             <div className="section-label">Driver Summary</div>
-            <div className="driver-cards-grid">
+            <div className="driver-cards-grid" style={{ "--card-count": driverSummaries.length } as any}>
               {driverSummaries.map((s) => <DriverCard key={s.driver} summary={s} />)}
             </div>
           </>
@@ -433,7 +433,7 @@ export default function Home() {
         .live-dot-sm { width: 6px; height: 6px; border-radius: 50%; background: #e10600; animation: livepulse 1.2s ease-in-out infinite; flex-shrink: 0; }
         .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: #777; margin: 20px 0 10px; padding-bottom: 8px; border-bottom: 1px solid #161616; display: flex; align-items: center; gap: 10px; }
         .section-label::before { content: ''; display: inline-block; width: 3px; height: 14px; background: #e10600; }
-        .driver-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        .driver-cards-grid { display: grid; grid-template-columns: repeat(var(--card-count, 4), 1fr); gap: 12px; }
         :global(.driver-card) { background: #0d0d0d; border: 1px solid #1a1a1a; border-top: 2px solid; padding: 16px; font-family: 'JetBrains Mono', monospace; }
         :global(.driver-name) { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
         :global(.stat-label) { font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase; color: #666; margin-bottom: 1px; }
