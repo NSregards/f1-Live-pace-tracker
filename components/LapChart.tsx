@@ -108,7 +108,7 @@ export default function LapChart({ laps, selectedDrivers, colorMap, scLaps, vscL
     for (const driver of selectedDrivers) {
       const dc = colorMap[driver] ?? "#888";
       const driverLaps = filtered.filter((l) => l.driver === driver).sort((a, b) => a.lapNumber - b.lapNumber);
-      const stints = [...new Set(driverLaps.map((l) => `${l.stint}-${l.compound}`))];
+      const stints = Array.from(new Set(driverLaps.map((l) => `${l.stint}-${l.compound}`)));
 
       stints.forEach((stintKey, idx) => {
         const [stintNum, compound] = stintKey.split("-");
