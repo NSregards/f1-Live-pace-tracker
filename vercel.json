@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "pages/api/race.ts": {
+      "maxDuration": 60
+    },
+    "pages/api/sessions.ts": {
+      "maxDuration": 15
+    },
+    "pages/api/live.ts": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"]
+}
