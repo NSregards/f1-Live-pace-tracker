@@ -41,7 +41,6 @@ export default function LapChart({ laps, selectedDrivers, colorMap, scLaps, vscL
     const shapes: any[] = [];
     const annotations: any[] = [];
 
-    // SC bands
     for (const [s, e] of scRanges) {
       shapes.push({
         type: "rect", x0: s - 0.5, x1: e + 0.5, y0: yMin, y1: yMax,
@@ -52,7 +51,6 @@ export default function LapChart({ laps, selectedDrivers, colorMap, scLaps, vscL
         font: { color: "rgba(255,215,0,0.8)", size: 10, family: "JetBrains Mono" }, xanchor: "left", yanchor: "bottom",
       });
     }
-    // VSC bands
     for (const [s, e] of vscRanges) {
       shapes.push({
         type: "rect", x0: s - 0.5, x1: e + 0.5, y0: yMin, y1: yMax,
@@ -108,7 +106,7 @@ export default function LapChart({ laps, selectedDrivers, colorMap, scLaps, vscL
     for (const driver of selectedDrivers) {
       const dc = colorMap[driver] ?? "#888";
       const driverLaps = filtered.filter((l) => l.driver === driver).sort((a, b) => a.lapNumber - b.lapNumber);
-      const stints = Array.from(new Set(driverLaps.map((l) => `${l.stint}-${l.compound}`)));
+      const stints = Array.from(new Set(driverLaps.map((l) => `${l.stint}-${l.compound}`))); 
 
       stints.forEach((stintKey, idx) => {
         const [stintNum, compound] = stintKey.split("-");
@@ -181,21 +179,41 @@ export default function LapChart({ laps, selectedDrivers, colorMap, scLaps, vscL
       bgcolor: "rgba(8,8,8,0.95)", bordercolor: "#1e1e1e", borderwidth: 1,
       font: { size: 11, color: "#cccccc", family: "JetBrains Mono" },
       x: 1.01, y: 1, xanchor: "left",
+      orientation: "v",
     },
     hovermode: "x unified",
-    height: 560,
-    margin: { l: 100, r: 160, t: 40, b: 50 },
+    height: 500,
+    margin: { l: 80, r: 40, t: 40, b: 50 },
     shapes,
     annotations,
+    dragmode: "pan",
+  };
+
+  const config: any = {
+    // Show minimal toolbar — only essential buttons
+    modeBarButtonsToRemove: [
+      "select2d", "lasso2d", "autoScale2d",
+      "hoverClosestCartesian", "hoverCompareCartesian",
+      "toggleSpikelines",
+    ],
+    modeBarButtonsToAdd: [],
+    displaylogo: false,
+    responsive: true,
+    // Enable touch scroll/zoom on mobile
+    scrollZoom: true,
+    doubleClick: "reset",
+    displayModeBar: "hover",
   };
 
   return (
-    <Plot
-      data={traces}
-      layout={layout}
-      config={{ displayModeBar: false, responsive: true }}
-      style={{ width: "100%" }}
-      useResizeHandler
-    />
+    <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" } as any}>
+      <Plot
+        data={traces}
+        layout={layout}
+        config={config}
+        style={{ width: "100%", minWidth: 480 }}
+        useResizeHandler
+      />
+    </div>
   );
 }
