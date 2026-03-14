@@ -39,7 +39,7 @@ interface RaceMeta {
 }
 
 export default function Home() {
-  const [year, setYear] = useState(2025);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [races, setRaces] = useState<RaceMeta[]>([]);
   const [selectedSessionKey, setSelectedSessionKey] = useState<number | null>(null);
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
