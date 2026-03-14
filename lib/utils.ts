@@ -52,20 +52,15 @@ export function secsToMs(s: number | null): string {
   return `${m}:${sec.toFixed(3).padStart(6, "0")}`;
 }
 
-// Handles null, undefined, "HARD", "HARD_C2", "C2", "hard_c2" etc.
 function normaliseCompound(raw: string | null | undefined): string {
   if (!raw) return "UNKNOWN";
   const upper = raw.toUpperCase().trim();
   if (!upper) return "UNKNOWN";
-  // Direct match
   if (TYRE_COLORS[upper] !== undefined) return upper;
-  // Whitespace normalised
   const clean = upper.replace(/\s+/g, "_");
   if (TYRE_COLORS[clean] !== undefined) return clean;
-  // Base type before underscore e.g. "HARD_C2" -> "HARD"
   const base = upper.split("_")[0];
   if (base && TYRE_COLORS[base] !== undefined) return base;
-  // C-number part e.g. "HARD_C2" -> "C2"
   const cNum = upper.match(/C\d/)?.[0];
   if (cNum && TYRE_COLORS[cNum] !== undefined) return cNum;
   return "UNKNOWN";
@@ -155,25 +150,59 @@ export function processRaceData(
     const flag = (msg.flag ?? "").toUpperCase().trim();
     const message = (msg.message ?? "").toUpperCase().trim();
 
-    if (flag === "SAFETY_CAR" || message.includes("SAFETY CAR DEPLOYED")) {
+    // ── Safety Car deployed ──
+    // Handles: flag="SAFETY_CAR", message="SAFETY CAR DEPLOYED", message="SC DEPLOYED"
+    if (
+      flag === "SAFETY_CAR" ||
+      message.includes("SAFETY CAR DEPLOYED") ||
+      message === "SC DEPLOYED"
+    ) {
       if (vscStart !== null) {
         for (let l = vscStart; l < lap; l++) vscLaps.add(l);
         vscStart = null;
       }
       if (scStart === null) scStart = lap;
-    } else if (flag === "VIRTUAL_SAFETY_CAR" || message.includes("VIRTUAL SAFETY CAR DEPLOYED")) {
+
+    // ── Virtual Safety Car deployed ──
+    // Handles: flag="VIRTUAL_SAFETY_CAR", message="VIRTUAL SAFETY CAR DEPLOYED", message="VSC DEPLOYED"
+    } else if (
+      flag === "VIRTUAL_SAFETY_CAR" ||
+      message.includes("VIRTUAL SAFETY CAR DEPLOYED") ||
+      message === "VSC DEPLOYED"
+    ) {
       if (vscStart === null && scStart === null) vscStart = lap;
-    } else if (message.includes("SAFETY CAR IN THIS LAP") || message.includes("SAFETY CAR IN THE PIT LANE")) {
+
+    // ── Safety Car ending ──
+    // Handles: message="SAFETY CAR IN THIS LAP", message="SAFETY CAR IN THE PIT LANE", message="SC ENDING"
+    } else if (
+      message.includes("SAFETY CAR IN THIS LAP") ||
+      message.includes("SAFETY CAR IN THE PIT LANE") ||
+      message === "SC ENDING"
+    ) {
       if (scStart !== null) {
         for (let l = scStart; l <= lap; l++) scLaps.add(l);
         scStart = null;
       }
-    } else if (message.includes("VIRTUAL SAFETY CAR ENDING") || message.includes("VIRTUAL SAFETY CAR ENDED")) {
+
+    // ── Virtual Safety Car ending ──
+    // Handles: message="VIRTUAL SAFETY CAR ENDING", message="VIRTUAL SAFETY CAR ENDED", message="VSC ENDING"
+    } else if (
+      message.includes("VIRTUAL SAFETY CAR ENDING") ||
+      message.includes("VIRTUAL SAFETY CAR ENDED") ||
+      message === "VSC ENDING"
+    ) {
       if (vscStart !== null) {
         for (let l = vscStart; l <= lap; l++) vscLaps.add(l);
         vscStart = null;
       }
-    } else if (flag === "GREEN" || flag === "CLEAR" || message.includes("GREEN FLAG") || message.includes("TRACK CLEAR")) {
+
+    // ── Green / clear — close any open window ──
+    // Note: only match TRACK CLEAR with Track scope, not sector clears
+    } else if (
+      flag === "GREEN" ||
+      message === "GREEN FLAG" ||
+      message === "TRACK CLEAR"
+    ) {
       if (scStart !== null) {
         for (let l = scStart; l <= lap; l++) scLaps.add(l);
         scStart = null;
@@ -185,6 +214,7 @@ export function processRaceData(
     }
   }
 
+  // Close any windows still open at end of data
   const maxRcLap = rcSorted.length ? Math.max(...rcSorted.map((r) => r.lap_number ?? 0)) : 0;
   if (scStart !== null && maxRcLap > 0) {
     for (let l = scStart; l <= maxRcLap; l++) scLaps.add(l);
@@ -192,6 +222,8 @@ export function processRaceData(
   if (vscStart !== null && maxRcLap > 0) {
     for (let l = vscStart; l <= maxRcLap; l++) vscLaps.add(l);
   }
+
+  // SC takes priority — never overlap
   for (const lap of Array.from(scLaps)) vscLaps.delete(lap);
 
   // ── Process laps ──────────────────────────────────────────────────────────
@@ -209,8 +241,17 @@ export function processRaceData(
       currentStint = driverStints[driverStints.length - 1];
     }
 
-    // Use lap-level compound if stint compound is null
-    const rawCompound = currentStint?.compound ?? null;
+    // If stint compound is null, infer from adjacent stints
+    let rawCompound = currentStint?.compound ?? null;
+    if (!rawCompound && currentStint) {
+      const nextStint = driverStints.find(
+        (s) => s.stint_number === currentStint!.stint_number + 1
+      );
+      const prevStint = driverStints.find(
+        (s) => s.stint_number === currentStint!.stint_number - 1
+      );
+      rawCompound = nextStint?.compound ?? prevStint?.compound ?? null;
+    }
     const compound = normaliseCompound(rawCompound);
 
     const tyreLife = currentStint
